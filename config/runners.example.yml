@@ -29,9 +29,12 @@
 #   env      extra environment variables, non-secret (secrets belong in GitHub secrets)
 #   image    runner image (gha-runner:local, built by compose)
 
+# cpus and memory are ceilings, not reservations: idle runners use almost nothing, busy ones share
+# the cores. A tight cpus starves parallel test runners and builds: raise it toward the host's core
+# count minus 2 for heavy suites, and keep count x memory below its RAM.
 defaults:
-  cpus: 2
-  memory: 4g
+  cpus: 4
+  memory: 8g
   pids: 4096
   shm: 1g
   sudo: true
