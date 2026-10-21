@@ -1,0 +1,50 @@
+# Self-hosted GitHub Actions runners: one fresh container per job, N per pool, several orgs.
+# Pools (org, count, resources, labels) live in config/runners.yml, re-read live by the manager.
+# Machine settings and credentials live in .env (see .env.example). Usage: README.md.
+name: gha-runners
+
+services:
+  # Builds the runner image only: the manager starts the runner containers itself, one per job.
+  runner-image:
+    build:
+      context: ./runner
+      args:
+        RUNNER_VERSION: ${RUNNER_VERSION:-latest}
+    image: ${RUNNER_IMAGE:-gha-runner:local}
+    entrypoint: ["true"]
+    network_mode: none
+    restart: "no"
+
+  manager:
+    build: ./manager
+    image: gha-runner-manager:local
+    depends_on:
+      runner-image:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      CONFIG_FILE: /etc/gha/runners.yml
+      RUNNER_IMAGE: ${RUNNER_IMAGE:-gha-runner:local}
+      GITHUB_APP_PRIVATE_KEY_FILE: /run/secrets/github-app.pem
+    volumes:
+      # The manager's only privilege. No runner ever gets the socket.
+      - /var/run/docker.sock:/var/run/docker.sock
+      # The directory, not the file: an editor that replaces the file on save would otherwise
+      # leave the container on the old inode.
+      - ./config:/etc/gha:ro
+      - ./secrets:/run/secrets:ro
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop: [ALL]
+    security_opt:
+      - no-new-privileges:true
+    init: true
+    # DRAIN_SECONDS (300) for busy runners to finish, plus margin.
+    stop_grace_period: 330s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

@@ -1,0 +1,55 @@
+# Copy to config/runners.yml (git-ignored: it is this host's own setup) and edit.
+#
+# Runner pools, re-read by the manager every 10 s: an edit applies without any restart.
+# An invalid edit is logged (docker compose logs manager) and the previous config kept.
+#
+# A pool = `count` runners of one org, always available (idle or busy). Each job gets a fresh
+# container, destroyed afterwards. Lowering `count` or removing a pool only stops idle runners: a
+# running job is never cut.
+#
+# Labels: every runner carries `self-hosted`, `Linux` and its architecture (`X64` / `ARM64`), plus
+# the pool's `labels`. Target a pool from a workflow with `runs-on: [self-hosted, <label>]`.
+#
+# Pool keys (all but name/org/count may go in `defaults`):
+#   name     [a-z0-9-], unique; names the containers, network and cache volumes
+#   org      GitHub organization
+#   count    number of runners kept alive
+#   labels   extra labels
+#   group    runner group (Default). Default does not serve public repos unless the org allows it.
+#   cpus     CPU limit, fractional allowed
+#   memory   memory limit (swap disabled), e.g. 4g
+#   pids     process limit (fork bombs, leaked child processes)
+#   shm      /dev/shm size (Docker's 64m breaks Chromium)
+#   disk     writable layer quota, e.g. 30g: overlay2 on xfs with pquota only, else start fails
+#   runtime  OCI runtime registered in dockerd, e.g. sysbox-runc (Docker inside jobs without
+#            --privileged) or runsc (gVisor)
+#   sudo     passwordless sudo in the job (true). false also sets no-new-privileges, drops all caps
+#   caches   name: absolute path; a volume shared by the pool's runners and kept across jobs.
+#            Faster installs, but a job can poison what the next one reads: same-trust repos only.
+#   env      extra environment variables, non-secret (secrets belong in GitHub secrets)
+#   image    runner image (gha-runner:local, built by compose)
+
+defaults:
+  cpus: 2
+  memory: 4g
+  pids: 4096
+  shm: 1g
+  sudo: true
+
+pools:
+  - name: acme
+    org: acme
+    count: 2
+
+  - name: other
+    org: other-org
+    count: 2
+
+  - name: other-heavy
+    org: other-org
+    count: 1
+    labels: [heavy]
+    cpus: 4
+    memory: 8g
+    caches:
+      bun: /home/runner/.bun/install/cache
