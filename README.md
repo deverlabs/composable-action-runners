@@ -95,7 +95,7 @@ pauses 15 s, then 30 s, doubling up to 5 min, instead of hammering the GitHub AP
 
 ## Quick start
 
-Requirements: a Linux host with Docker Engine 24+ and the compose plugin. x64 and arm64 are both
+Requirements: a Linux host with Docker Engine 24+ and the compose plugin 2.24+. x64 and arm64 are both
 detected automatically.
 
 **1. Clone and create the two local files** (both git-ignored):
@@ -182,8 +182,8 @@ and `count` can also be set once under `defaults`.
 | `count` | required | Runners kept alive, idle or busy. `0` drains the pool. |
 | `labels` | `[]` | Extra labels. Every runner also carries `self-hosted`, `Linux` and `X64` or `ARM64`. |
 | `group` | `Default` | Runner group. The default group does not serve public repositories unless the org allows it. |
-| `cpus` | `2` | CPU limit, fractions allowed. A ceiling, not a reservation: see [sizing](#sizing-and-performance). |
-| `memory` | `4g` | Memory limit; swap is disabled. |
+| `cpus` | `4` | CPU limit, fractions allowed. A ceiling, not a reservation: see [sizing](#sizing-and-performance). |
+| `memory` | `8g` | Memory limit; swap is disabled. |
 | `pids` | `4096` | Process limit, against fork bombs and leaked child processes. |
 | `shm` | `1g` | Size of `/dev/shm`. Docker's 64 MB default crashes Chromium-based browsers. |
 | `disk` | none | Writable-layer quota, e.g. `30g`. Requires overlay2 on xfs mounted with `pquota`. |

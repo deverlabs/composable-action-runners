@@ -50,7 +50,7 @@ pools:
         group: 'Default',
         image: IMAGE,
         cpus: 3,
-        memory: 4 * 1024 ** 3,
+        memory: 8 * 1024 ** 3,
         pids: 4096,
         shm: 1024 ** 3,
         disk: undefined,
@@ -77,6 +77,11 @@ pools:
         env: {},
       },
     ]);
+  });
+
+  test('without any defaults, a runner gets 4 CPUs and 8 GB, as documented', () => {
+    const [pool] = parseConfig('pools: [{ name: a, org: acme, count: 1 }]', IMAGE).pools;
+    expect([pool.cpus, pool.memory]).toEqual([4, 8 * 1024 ** 3]);
   });
 
   test('a top-level image applies to every pool that does not set its own', () => {

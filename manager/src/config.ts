@@ -68,8 +68,9 @@ const POOL_KEYS = new Set([
 const BUILTIN_DEFAULTS = {
   labels: [],
   group: 'Default',
-  cpus: 2,
-  memory: '4g',
+  // Ceilings, not reservations: 2 CPUs starved parallel test suites.
+  cpus: 4,
+  memory: '8g',
   pids: 4096,
   shm: '1g',
   sudo: true,
