@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  manager:
+    name: manager (typecheck, tests)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: manager
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          # Same Bun as the manager image (manager/Dockerfile).
+          bun-version: 1.4.3
+
+      - run: bun install --frozen-lockfile
+      - run: bun run typecheck
+      - run: bun test
+
+  lint:
+    name: shellcheck, compose
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: shellcheck
+        run: |
+          command -v shellcheck >/dev/null || sudo apt-get install -y shellcheck
+          shellcheck runner/*.sh
+
+      - name: docker-compose.yml is valid
+        run: touch .env && docker compose config --quiet
+
+  images:
+    name: images (${{ matrix.arch }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            os: ubuntu-latest
+          - arch: arm64
+            os: ubuntu-24.04-arm
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Build the runner image
+        run: docker build --pull -t gha-runner:ci runner
+
+      - name: Smoke-test the runner image
+        run: docker run --rm --entrypoint bash -v "$PWD/runner/smoke-test.sh:/smoke-test.sh:ro" gha-runner:ci /smoke-test.sh
+
+      - name: The runner refuses to start without a JIT config
+        run: |
+          status=0
+          docker run --rm gha-runner:ci || status=$?
+          if [ "$status" -ne 64 ]; then
+            echo "::error::expected exit 64 without ACTIONS_RUNNER_INPUT_JITCONFIG, got $status"
+            exit 1
+          fi
+
+      - name: Build the manager image
+        run: docker build --pull -t gha-runner-manager:ci manager
+
+      - name: The manager validates its environment before anything else
+        run: |
+          out="$(docker run --rm gha-runner-manager:ci 2>&1 || true)"
+          echo "$out"
+          grep -q 'RUNNER_NAME_PREFIX is required' <<<"$out"
