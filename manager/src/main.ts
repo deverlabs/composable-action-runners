@@ -8,7 +8,7 @@
  *   2. spawn  register a JIT runner, then create and start its container.
  *   3. excess stop idle runners beyond their pool's count (count lowered, pool removed): the
  *             registration is deleted first, which GitHub refuses on a busy runner, so a running
- *             job is never cut.
+ *             job is never cut. A busy excess runner is left to exit after its job, checked once.
  *   4. gc     every GC_MINUTES, delete offline registrations of this prefix that no container
  *             backs (left by a host crash or a `docker rm -f`).
  * `runners.yml` is re-read on every tick: an edit applies within TICK_SECONDS. An invalid edit is
@@ -25,8 +25,8 @@ import { randomBytes } from 'node:crypto';
 import { writeFileSync } from 'node:fs';
 import { type Config, ConfigError, loadConfig, type Pool } from './config';
 import { docker } from './docker';
-import { GitHub } from './github';
-import { containerSpec, LABEL, type Managed, networkName, plan, runnerLabels } from './plan';
+import { GitHub, type Runner } from './github';
+import { containerSpec, idleToStop, LABEL, type Managed, networkName, plan, runnerLabels } from './plan';
 
 const PREFIX = process.env.RUNNER_NAME_PREFIX ?? '';
 const CONFIG_FILE = process.env.CONFIG_FILE ?? '/etc/gha/runners.yml';
@@ -56,6 +56,8 @@ if (!/^[a-z0-9]{1,20}$/.test(PREFIX)) {
 const github = new GitHub();
 const host = await docker.info();
 const backoff = new Map<string, { until: number; delayMs: number }>();
+/** Runner ids GitHub reported busy: they stay busy until their container exits. */
+const knownBusy = new Set<number>();
 let config: Config = { pools: [] };
 let lastConfigError = '';
 let lastGc = 0;
@@ -145,6 +147,7 @@ async function reap(c: Managed): Promise<void> {
   }
   await docker.remove(c.id);
   await deregister(c);
+  knownBusy.delete(c.runnerId);
 }
 
 async function spawn(pool: Pool): Promise<void> {
@@ -179,18 +182,33 @@ async function spawn(pool: Pool): Promise<void> {
 
 /** Stops up to `count` idle runners among `candidates`. Returns how many were stopped. */
 async function stopIdle(org: string, count: number, candidates: Managed[]): Promise<number> {
+  // A JIT runner seen busy never turns idle again: it exits after its job. Only the others need a
+  // look, so a long job on an excess runner costs one API call, not one per tick.
+  const unchecked = candidates.filter((c) => !knownBusy.has(c.runnerId));
+  if (unchecked.length === 0) return 0;
+  let runners: Runner[];
+  try {
+    runners = await github.listRunners(org);
+  } catch (error) {
+    log('warn', `scale down in ${org}: could not list runners: ${(error as Error).message}`);
+    return 0;
+  }
+  for (const runner of runners) if (runner.busy) knownBusy.add(runner.id);
+
   let stopped = 0;
-  for (const c of candidates) {
-    if (stopped >= count) break;
+  for (const c of idleToStop(unchecked, runners, count)) {
     let result: Awaited<ReturnType<GitHub['deleteRunner']>>;
     try {
-      // GitHub refuses (busy) once a job is assigned: that answer is what makes this safe.
+      // Still the safety net: GitHub refuses (busy) a job assigned since the list.
       result = await github.deleteRunner(org, c.runnerId);
     } catch (error) {
       log('warn', `${c.name}: could not delete registration: ${(error as Error).message}`);
       continue;
     }
-    if (result === 'busy') continue;
+    if (result === 'busy') {
+      knownBusy.add(c.runnerId);
+      continue;
+    }
     await docker.stop(c.id, 10);
     await docker.remove(c.id);
     log('info', `${c.name}: idle runner stopped (${result === 'deleted' ? 'registration deleted' : 'already unregistered'})`);

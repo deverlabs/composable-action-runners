@@ -53,6 +53,20 @@ export function plan(pools: Pool[], containers: Managed[]): Plan {
   return { reap, spawn, excess };
 }
 
+/**
+ * The excess runners that may be stopped: those GitHub lists as not busy, up to `count`. A runner
+ * GitHub no longer lists is ending its job (an ephemeral runner leaves the list with it) and exits
+ * on its own, like a busy one: neither is stopped.
+ */
+export function idleToStop(
+  candidates: Managed[],
+  runners: { id: number; busy: boolean }[],
+  count: number,
+): Managed[] {
+  const busy = new Map(runners.map((r) => [r.id, r.busy]));
+  return candidates.filter((c) => busy.get(c.runnerId) === false).slice(0, count);
+}
+
 export function networkName(prefix: string, pool: string): string {
   return `gha-${prefix}-${pool}`;
 }
