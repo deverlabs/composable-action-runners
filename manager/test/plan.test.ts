@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { parseConfig, type Pool } from '../src/config';
-import { containerSpec, type Managed, plan, runnerLabels } from '../src/plan';
+import { containerSpec, idleToStop, type Managed, plan, runnerLabels } from '../src/plan';
 
 function pools(yaml: string): Pool[] {
   return parseConfig(yaml, 'gha-runner:local').pools;
@@ -53,6 +53,24 @@ describe('plan', () => {
     const result = plan(pools('pools: [{ name: a, org: beta, count: 1 }]'), [old]);
     expect(result.spawn.map((s) => [s.pool.org, s.count])).toEqual([['beta', 1]]);
     expect(result.excess).toEqual([{ org: 'acme', count: 1, candidates: [old] }]);
+  });
+});
+
+describe('idleToStop', () => {
+  test('stops only runners GitHub lists as idle, up to the excess count', () => {
+    const [busy, idle1, gone, idle2] = [managed('a', 'acme'), managed('a', 'acme'), managed('a', 'acme'), managed('a', 'acme')];
+    const runners = [
+      { id: busy.runnerId, busy: true },
+      { id: idle1.runnerId, busy: false },
+      { id: idle2.runnerId, busy: false },
+    ];
+    expect(idleToStop([busy, idle1, gone, idle2], runners, 1)).toEqual([idle1]);
+    expect(idleToStop([busy, idle1, gone, idle2], runners, 5)).toEqual([idle1, idle2]);
+  });
+
+  test('a runner missing from the list is ending its job: never stopped', () => {
+    const ending = managed('a', 'acme');
+    expect(idleToStop([ending], [], 1)).toEqual([]);
   });
 });
 
