@@ -49,7 +49,7 @@ function log(level: 'info' | 'warn' | 'error', message: string): void {
 
 if (!/^[a-z0-9]{1,20}$/.test(PREFIX)) {
   // No dash: the GC matches `<prefix>-`, and a dash would let one host's prefix cover another's.
-  log('error', 'RUNNER_NAME_PREFIX is required: [a-z0-9], 20 chars max, unique per host');
+  log('error', 'RUNNER_NAME_PREFIX is required in .env: [a-z0-9], 20 chars max, unique per host');
   process.exit(1);
 }
 

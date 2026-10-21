@@ -95,7 +95,7 @@ pauses 15 s, then 30 s, doubling up to 5 min, instead of hammering the GitHub AP
 
 ## Quick start
 
-Requirements: a Linux host with Docker Engine 24+ and the compose plugin. x64 and arm64 are both
+Requirements: a Linux host with Docker Engine 24+ and the compose plugin 2.24+. x64 and arm64 are both
 detected automatically.
 
 **1. Clone and create the two local files** (both git-ignored):

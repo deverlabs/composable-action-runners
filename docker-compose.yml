@@ -22,7 +22,11 @@ services:
       runner-image:
         condition: service_completed_successfully
     restart: unless-stopped
-    env_file: .env
+    # Optional so `docker compose build` works before .env exists; the manager itself refuses to
+    # start without RUNNER_NAME_PREFIX and says so in its log.
+    env_file:
+      - path: .env
+        required: false
     environment:
       CONFIG_FILE: /etc/gha/runners.yml
       RUNNER_IMAGE: ${RUNNER_IMAGE:-gha-runner:local}
