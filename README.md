@@ -375,3 +375,7 @@ cd manager && bun install && bun test && bun run typecheck
 | `manager/src/docker.ts` | Minimal Docker Engine API client. |
 | `manager/src/config.ts` | `runners.yml` parsing and validation. |
 | `runner/` | Runner image and its entrypoint. |
+
+## License
+
+[MIT](LICENSE)
