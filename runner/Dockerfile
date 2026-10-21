@@ -33,6 +33,22 @@ RUN apt-get update \
 ENV LANG=en_US.UTF-8 \
     LC_ALL=en_US.UTF-8
 
+# Node.js on PATH, as on ubuntu-latest. Without it, `bun run` executes `#!/usr/bin/env node`
+# tools under Bun instead, and Node-only APIs break silently (undici dispatchers: wrangler's
+# runtime type generation fetches a placeholder host for real and fails with ENOTFOUND).
+# The latest release of NODE_MAJOR is taken at build time.
+ARG NODE_MAJOR=26
+RUN arch="$(dpkg --print-architecture | sed 's/amd64/x64/')" \
+    && base="https://nodejs.org/dist/latest-v${NODE_MAJOR}.x" \
+    && curl -fsSL "$base/SHASUMS256.txt" -o /tmp/SHASUMS256.txt \
+    && file="$(grep -oE "node-v[0-9.]+-linux-${arch}\.tar\.xz" /tmp/SHASUMS256.txt | head -1)" \
+    && curl -fsSL "$base/$file" -o "/tmp/$file" \
+    && (cd /tmp && grep " $file\$" SHASUMS256.txt | sha256sum -c -) \
+    && tar -xJf "/tmp/$file" -C /usr/local --strip-components=1 \
+        --exclude CHANGELOG.md --exclude LICENSE --exclude README.md \
+    && rm "/tmp/$file" /tmp/SHASUMS256.txt \
+    && node --version && npm --version
+
 # Usual cache locations, created and owned by `runner` in the image: a pool cache volume mounted
 # there starts with this ownership, so it is writable even by a pool without sudo. `chown -R` on
 # the top-level directories: `install -d -o` would only own the last level, leaving `_work` and
