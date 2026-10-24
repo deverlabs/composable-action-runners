@@ -241,7 +241,7 @@ Built from the official `ghcr.io/actions/actions-runner` (Ubuntu 24.04), plus:
 
 - **Node.js 26** and npm on `PATH`, as on `ubuntu-latest`. Without a real `node`, `bun run` executes
   `#!/usr/bin/env node` tools under Bun, and Node-only APIs break in confusing ways.
-- `git`, `curl`, `jq`, `unzip`, `zip`, `xz`, `zstd`, `rsync`, `wget`, `openssh-client`;
+- the GitHub CLI (`gh`), `git`, `curl`, `jq`, `unzip`, `zip`, `xz`, `zstd`, `rsync`, `wget`, `openssh-client`;
 - `build-essential`, `pkg-config`, `python3` with `venv`;
 - the `en_US.UTF-8` locale, and the Docker CLI without a daemon.
 

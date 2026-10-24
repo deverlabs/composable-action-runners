@@ -28,9 +28,9 @@ runtime=$(node -p "process.versions.bun ? 'bun' : 'node'") || fail "no node on P
 [[ "$runtime" == node ]] || fail "node on PATH is $runtime, not Node.js"
 npm --version >/dev/null || fail "no npm"
 
-for tool in git curl jq unzip zip xz zstd rsync python3 gcc make; do
+for tool in gh git curl jq unzip zip xz zstd rsync python3 gcc make; do
   command -v "$tool" >/dev/null || fail "$tool is missing"
 done
 sudo -n true || fail "passwordless sudo is missing"
 
-echo "OK: node $(node --version), npm $(npm --version), $(git --version), $(python3 --version)"
+echo "OK: node $(node --version), npm $(npm --version), $(git --version), $(python3 --version), $(gh --version | head -1)"
